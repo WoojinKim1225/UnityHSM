@@ -1,0 +1,11 @@
+{
+  "name": "com.rimeu.hsm",
+  "version": "1.0.0",
+  "displayName": "Hirearchical State Machine",
+  "description": "A hierarchical state machine for Unity.",
+  "unity": "6000.0",
+  "author": {
+    "name": "WoojinKim",
+    "email": "kwj69641@gmail.com"
+  }
+}
