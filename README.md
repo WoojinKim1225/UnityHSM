@@ -88,7 +88,7 @@ __3. `StateMachine` 클래스 구현__
 ```
 using HSM;
 
-public class CustomStateMachine : StateMachineCharacter>
+public class CustomStateMachine : StateMachine<Character>
 {
     private Root root;
     protected override void Awake()
