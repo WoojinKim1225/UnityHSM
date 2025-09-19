@@ -105,8 +105,8 @@ public class CustomStateMachine : StateMachineCharacter>
 ```
 
 __4. 유니티 컴포넌트 연결__
-마지막으로 `PhysicsCharacter`와 `PhysicsStateMachine` 스크립트를 유니티 게임 오브젝트에 컴포넌트로 추가합니다.
- `PhysicsStateMachine`는 캐릭터의 `OnInitialEnter()`, `OnUpdate()`, `OnFixedUpdate() `메서드를 호출하여 상태를 관리합니다.
+마지막으로 `Character`와 `CustomStateMachine` 스크립트를 유니티 게임 오브젝트에 컴포넌트로 추가합니다.
+ `CustomStateMachine`는 캐릭터의 `OnInitialEnter()`, `OnUpdate()`, `OnFixedUpdate() `메서드를 호출하여 상태를 관리합니다.
 
 #### 기여하기
 버그 보고, 기능 제안 또는 개선 사항은 언제든지 GitHub 이슈를 통해 알려주세요. 기여를 환영합니다!

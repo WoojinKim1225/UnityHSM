@@ -84,11 +84,6 @@ namespace HSM
             // 새로운 상태 경로를 계산합니다.
             List<System.Type> newStates = GetStatePath(nextStateType, c);
 
-#if UNITY_EDITOR
-            // 디버그용 로그: 새로운 상태 경로를 출력합니다.
-            Debug.Log($"상태 전이: {string.Join(" -> ", newStates.Where(s => s != null).Select(s => s.Name))}");
-#endif
-
             // 이전 상태에서 나가고, 새로운 상태로 진입합니다.
             // 상태 배열의 각 요소에 대해 이전 상태와 새로운 상태를 비교합니다.
             for (int i = 0; i < _HEIGHT; i++)
