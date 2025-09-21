@@ -9,7 +9,7 @@ namespace HSM
     {
         // 멀티스레드 환경에서 안전하게 인스턴스 딕셔너리에 접근하기 위한 잠금(lock) 객체.
         private static readonly object lockObject = new object();
-        
+
         // 멀티턴 인스턴스들을 키(string)와 값(T) 쌍으로 저장하는 정적 딕셔너리.
         private static Dictionary<string, T> _instances;
 
@@ -77,10 +77,7 @@ namespace HSM
                 Instances[key] = this as T;
                 Debug.Log($"Multiton '{typeof(T).Name}' 인스턴스 '{key}'가 등록되었습니다.");
 
-                foreach (var kvp in Instances)
-                {
-                    Debug.Log(kvp.Key + ": " + kvp.Value);
-                }
+                this.OnMultitonAwake();
             }
         }
 
@@ -95,7 +92,19 @@ namespace HSM
             {
                 Instances.Remove(key);
                 Debug.Log($"Multiton '{typeof(T).Name}' 인스턴스 '{key}'가 딕셔너리에서 제거되었습니다.");
+
+                this.OnMultitionDestroy();
             }
+        }
+
+        public virtual void OnMultitonAwake()
+        {
+
+        }
+        
+        public virtual void OnMultitionDestroy()
+        {
+            
         }
     }
 

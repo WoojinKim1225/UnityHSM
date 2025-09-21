@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
+using UnityEngine.Pool;
 
 namespace HSM
 {
@@ -13,8 +14,8 @@ namespace HSM
     public class StateMachine<T> : Multiton<StateMachine<T>> where T : MonoBehaviour, ICharacter
     {
         protected System.Type rootType;
-        protected Dictionary<System.Type, State<T>> _STATEDICT;
-        protected int _HEIGHT;
+        protected Dictionary<System.Type, State<T>> _stateMap;
+        protected int _height;
 
         /// <summary>
         /// 캐릭터가 처음으로 상태 머신에 진입할 때 호출됩니다.
@@ -23,11 +24,11 @@ namespace HSM
         /// <param name="c">상태 머신이 제어하는 캐릭터 인스턴스</param>
         public void OnInitialEnter(T c)
         {
-            c.states = new System.Type[_HEIGHT];
-            for ((System.Type s, int i) = (rootType, 0); s != null; (s, i) = (_STATEDICT[s].GetInitialState(), i + 1))
+            c.states = new System.Type[_height];
+            for ((System.Type s, int i) = (rootType, 0); s != null; (s, i) = (_stateMap[s].GetInitialState(), i + 1))
             {
                 c.states[i] = s;
-                _STATEDICT[s].OnEnter(c);
+                _stateMap[s].OnEnter(c);
             }
         }
 
@@ -41,7 +42,8 @@ namespace HSM
             CheckState(c);
             foreach (var s in c.states)
             {
-                _STATEDICT[s].OnUpdate(c, dt);
+                if (s == null) continue;
+                _stateMap[s].OnUpdate(c, dt);
             }
         }
 
@@ -54,7 +56,8 @@ namespace HSM
         {
             foreach (var s in c.states)
             {
-                _STATEDICT[s].OnFixedUpdate(c, dt);
+                if (s == null) continue;
+                _stateMap[s].OnFixedUpdate(c, dt);
             }
         }
 
@@ -67,10 +70,10 @@ namespace HSM
             System.Type nextStateType = null;
 
             // 현재 상태 계층을 순회하며 전이(Transition) 조건을 확인합니다.
-            for (int i = 0; i < _HEIGHT; i++)
+            for (int i = 0; i < _height; i++)
             {
                 if (c.states[i] == null) break;
-                var transition = _STATEDICT[c.states[i]].GetTransition(c);
+                var transition = _stateMap[c.states[i]].GetTransition(c);
                 if (transition != null)
                 {
                     nextStateType = transition;
@@ -82,21 +85,27 @@ namespace HSM
             if (nextStateType == null) return;
 
             // 새로운 상태 경로를 계산합니다.
-            List<System.Type> newStates = GetStatePath(nextStateType, c);
+            List<System.Type> newStates = GetStatePath(nextStateType, c, out int parentPathCount);
 
             // 이전 상태에서 나가고, 새로운 상태로 진입합니다.
             // 상태 배열의 각 요소에 대해 이전 상태와 새로운 상태를 비교합니다.
-            for (int i = 0; i < _HEIGHT; i++)
+            for (int i = 0; i < _height; i++)
             {
-                if (c.states[i] == newStates[i]) continue;
+                int j = (i < parentPathCount) ? parentPathCount - 1 - i : i;
+                if (c.states[i] == newStates[j]) continue;
 
                 // 이전 상태가 있으면 OnExit 호출
-                _STATEDICT[c.states[i]]?.OnExit(c);
+                if (c.states[i] != null)
+                    _stateMap[c.states[i]]?.OnExit(c);
+
                 // 새로운 상태가 있으면 OnEnter 호출
-                _STATEDICT[newStates[i]]?.OnEnter(c);
+                if (newStates[j] != null)
+                    _stateMap[newStates[j]]?.OnEnter(c);
+
                 // 현재 상태를 새로운 상태로 업데이트
-                c.states[i] = newStates[i];
+                c.states[i] = newStates[j];
             }
+            ListPool<System.Type>.Release(newStates);
         }
 
         /// <summary>
@@ -105,32 +114,44 @@ namespace HSM
         /// <param name="startStateType">전이가 시작되는 상태 타입</param>
         /// <param name="c">캐릭터 인스턴스</param>
         /// <returns>완성된 새로운 상태 경로 리스트</returns>
-        private List<System.Type> GetStatePath(System.Type startStateType, T c)
+        private List<System.Type> GetStatePath(System.Type startStateType, T c, out int parentPathCount)
         {
-            List<System.Type> path = new List<System.Type>();
+            List<System.Type> path = ListPool<System.Type>.Get();
             System.Type currentType = startStateType;
 
             // 1. 부모 상태를 찾아 리스트의 앞쪽에 삽입하여 경로를 완성합니다.
             while (currentType != null)
             {
-                path.Insert(0, currentType);
-                if (_STATEDICT[currentType].parent == null) break;
-                currentType = _STATEDICT[currentType].parent.GetType();
+                path.Add(currentType);
+                State<T> parent = _stateMap[currentType].parent;
+
+                if (parent == null) break;
+                currentType = parent.GetType();
             }
+            parentPathCount = path.Count;
 
             // 2. 가장 하위 상태부터 초기 자식 상태를 찾아 경로에 추가합니다.
             currentType = startStateType;
             while (currentType != null)
             {
-                var state = _STATEDICT[currentType];
-                var newChildStateType = state.GetTransition(c);
+                var state = _stateMap[currentType];
+                if (state == null) break;
+                if (state.GetInitialState() == null) break;
+                var newChildStateType = _stateMap[state.GetInitialState()].GetTransition(c);
                 if (newChildStateType == null) newChildStateType = state.GetInitialState();
                 if (newChildStateType == null) break;
+
+                if (path.Contains(newChildStateType))
+                {
+                    Debug.LogError($"HSM cycle detected: state '{currentType.Name}' is trying to enter child state '{newChildStateType.Name}' which is already in the current path. Aborting state change.");
+                    break;
+                }
+
                 path.Add(newChildStateType);
                 currentType = newChildStateType;
             }
 
-            while (path.Count < _HEIGHT)
+            while (path.Count < _height)
             {
                 path.Add(null);
             }
